@@ -21,7 +21,7 @@ namespace Utils
 float rotationGeodesicDistance(const Eigen::Matrix3f &R1, const Eigen::Matrix3f &R2)
 {
   float cos = ((R1 * R2.transpose()).trace()-1) / 2.0;
-  cos = std::max(std::min(cos, 1.0f), -1.0f);
+  cos = (std::max)((std::min)(cos, 1.0f), -1.0f);
   return std::acos(cos);
 }
 

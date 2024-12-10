@@ -19,7 +19,7 @@
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
 
-inline int divCeil(int a, int b)
+inline unsigned int divCeil(int a, int b)
 {
   return (a+b-1)/b;
 };

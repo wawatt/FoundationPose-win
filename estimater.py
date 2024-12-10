@@ -66,7 +66,14 @@ class FoundationPose:
     self.mesh_path = None
     self.mesh = mesh
     if self.mesh is not None:
-      self.mesh_path = f'/tmp/{uuid.uuid4()}.obj'
+      if os.name == 'nt':
+        print("This is a Windows system.")
+        # 如果不存在，则创建tmp文件夹
+        if not os.path.exists("tmp"):
+          os.makedirs("tmp")
+        self.mesh_path = f'tmp/{uuid.uuid4()}.obj'
+      else:
+        self.mesh_path = f'/tmp/{uuid.uuid4()}.obj'
       self.mesh.export(self.mesh_path)
     self.mesh_tensors = make_mesh_tensors(self.mesh)
 

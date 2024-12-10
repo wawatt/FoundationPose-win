@@ -13,7 +13,11 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
-#include <bits/stdc++.h>
+#ifdef __linux__
+  #include <bits/stdc++.h>
+#else
+  #include "stdc++.h"
+#endif
 #include <ATen/cuda/CUDAContext.h>
 #include <torch/torch.h>
 #include <stdint.h>
@@ -114,8 +118,8 @@ at::Tensor sampleRaysUniformOccupiedVoxels(const at::Tensor z_in_out,  const at:
 
   const int N_rays = z_sampled.sizes()[0];
   const int N_samples = z_sampled.sizes()[1];
-  const int threadx = 32;
-  const int thready = 32;
+  unsigned int threadx = 32;
+  unsigned int thready = 32;
 
   AT_DISPATCH_FLOATING_TYPES(z_in_out.type(), "sample_rays_uniform_occupied_voxels_kernel", ([&]
   {
@@ -126,7 +130,7 @@ at::Tensor sampleRaysUniformOccupiedVoxels(const at::Tensor z_in_out,  const at:
 }
 
 template<class scalar_t>
-__global__ void postprocessOctreeRayTracingKernel(const torch::PackedTensorAccessor32<long,1,torch::RestrictPtrTraits> ray_index, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> depth_in_out, const torch::PackedTensorAccessor32<long,1,torch::RestrictPtrTraits> unique_intersect_ray_ids, const torch::PackedTensorAccessor32<long,1,torch::RestrictPtrTraits> start_poss, torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> depths_in_out_padded)
+__global__ void postprocessOctreeRayTracingKernel(const torch::PackedTensorAccessor32<scalar_t,1,torch::RestrictPtrTraits> ray_index, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> depth_in_out, const torch::PackedTensorAccessor32<scalar_t,1,torch::RestrictPtrTraits> unique_intersect_ray_ids, const torch::PackedTensorAccessor32<scalar_t,1,torch::RestrictPtrTraits> start_poss, torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> depths_in_out_padded)
 {
   const int unique_id_pos = blockIdx.x * blockDim.x + threadIdx.x;
   if (unique_id_pos>=unique_intersect_ray_ids.size(0)) return;
@@ -161,7 +165,7 @@ at::Tensor postprocessOctreeRayTracing(const at::Tensor ray_index, const at::Ten
   dim3 blocks = {divCeil(n_unique_ids,threads.x)};
   AT_DISPATCH_FLOATING_TYPES(depth_in_out.type(), "postprocessOctreeRayTracingKernel", ([&]
   {
-    postprocessOctreeRayTracingKernel<scalar_t><<<blocks,threads>>>(ray_index.packed_accessor32<long,1,torch::RestrictPtrTraits>(), depth_in_out.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), unique_intersect_ray_ids.packed_accessor32<long,1,torch::RestrictPtrTraits>(), start_poss.packed_accessor32<long,1,torch::RestrictPtrTraits>(), depths_in_out_padded.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>());
+    postprocessOctreeRayTracingKernel<scalar_t><<<blocks,threads>>>(ray_index.packed_accessor32<scalar_t,1,torch::RestrictPtrTraits>(), depth_in_out.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), unique_intersect_ray_ids.packed_accessor32<scalar_t,1,torch::RestrictPtrTraits>(), start_poss.packed_accessor32<scalar_t,1,torch::RestrictPtrTraits>(), depths_in_out_padded.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>());
   }));
 
   return depths_in_out_padded;
@@ -220,7 +224,7 @@ __device__ void calculateBarycentricCoordinate2DKernel(const Eigen::Matrix<float
 
 
 template<class scalar_t>
-__global__ void rayColorToTextureImageKernel(const torch::PackedTensorAccessor32<long,2,torch::RestrictPtrTraits> F, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> V, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> hit_locations, const torch::PackedTensorAccessor32<long,1,torch::RestrictPtrTraits> hit_face_ids, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> uvs_tex, torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> uvs)
+__global__ void rayColorToTextureImageKernel(const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> F, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> V, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> hit_locations, const torch::PackedTensorAccessor32<scalar_t,1,torch::RestrictPtrTraits> hit_face_ids, const torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> uvs_tex, torch::PackedTensorAccessor32<scalar_t,2,torch::RestrictPtrTraits> uvs)
 {
   const int i_hit = blockIdx.x*blockDim.x + threadIdx.x;
   if (i_hit>=hit_locations.size(0)) return;
@@ -267,7 +271,7 @@ void rayColorToTextureImageCUDA(const at::Tensor &F, const at::Tensor &V, const 
 
   AT_DISPATCH_FLOATING_TYPES(V.type(), "rayColorToTextureImageKernel", ([&]
   {
-    rayColorToTextureImageKernel<scalar_t><<<blocks,threads>>>(F.packed_accessor32<long,2,torch::RestrictPtrTraits>(), V.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_locations.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_face_ids.packed_accessor32<long,1,torch::RestrictPtrTraits>(), uvs_tex.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), uvs.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>());
+    rayColorToTextureImageKernel<scalar_t><<<blocks,threads>>>(F.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), V.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_locations.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_face_ids.packed_accessor32<scalar_t,1,torch::RestrictPtrTraits>(), uvs_tex.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), uvs.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>());
   }));
 }
 

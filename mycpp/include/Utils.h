@@ -27,7 +27,11 @@
 #include <Eigen/Geometry>
 #include <string>
 #include <limits.h>
-#include <unistd.h>
+#ifdef WIN32
+ #include <windows.h>
+#else
+ #include <unistd.h>
+#endif
 #include <memory>
 #include <math.h>
 #include <boost/format.hpp>
